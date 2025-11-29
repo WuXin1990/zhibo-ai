@@ -5,15 +5,17 @@ import { UploadCloud, FileImage, Loader2, Stethoscope, ArrowLeft, Download, Pale
 import Link from "next/link";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { useUser } from "@clerk/nextjs"; // 1. 引入
 
 export default function DiagnosisPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
-  // ✨ 新增：用户指定的线条颜色
   const [lineColor, setLineColor] = useState("自动识别");
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useUser(); // 2. 正确位置：写在函数内部第一行
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -34,12 +36,23 @@ export default function DiagnosisPage() {
       const response = await fetch("/api/diagnose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // ✨ 把颜色传给后端
         body: JSON.stringify({ image: imagePreview, lineColor }),
       });
+      
       const data = await response.json();
-      if (data.error) setResult("诊断失败：" + data.error);
-      else setResult(data.result);
+      
+      if (response.status === 403 && data.error.includes("积分不足")) {
+        alert("免费算力已耗尽，请去话术生成页充值，或联系管理员。");
+        return;
+      }
+
+      if (data.error) {
+        setResult("诊断失败：" + data.error);
+      } else {
+        setResult(data.result);
+        // 3. 成功后刷新余额
+        await user?.reload();
+      }
     } catch (error) {
       setResult("网络错误，请稍后再试。");
     } finally {
@@ -47,7 +60,7 @@ export default function DiagnosisPage() {
     }
   };
 
-  // 修复版导出函数 (包含 lab 颜色修复)
+  // 修复版导出函数
   const exportPDF = async () => {
     const element = document.getElementById("report-content");
     if (!element || !result) {
@@ -119,7 +132,7 @@ export default function DiagnosisPage() {
     <div className="min-h-screen bg-slate-50 flex flex-col items-center py-10">
       <div className="w-full max-w-4xl px-4 mb-8 flex items-center justify-between">
         <Link href="/" className="flex items-center text-gray-500 hover:text-purple-600 transition-colors">
-          <ArrowLeft size={20} className="mr-1" /> 返回话术生成
+          <ArrowLeft size={20} className="mr-1" /> 返回首页
         </Link>
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
           <Stethoscope className="text-blue-600" />
@@ -152,7 +165,7 @@ export default function DiagnosisPage() {
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
           </div>
 
-          {/* ✨ 颜色选择器 */}
+          {/* 颜色选择器 */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
               <Palette size={16} /> 指定【在线人数】曲线颜色：
@@ -176,7 +189,7 @@ export default function DiagnosisPage() {
             disabled={loading}
             className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-blue-200"
           >
-            {loading ? <><Loader2 className="animate-spin" /> 正在根据指示分析...</> : "🔍 开始深度诊断"}
+            {loading ? <><Loader2 className="animate-spin" /> 正在根据指示分析...</> : "🔍 开始深度诊断 (消耗1积分)"}
           </button>
         </div>
 

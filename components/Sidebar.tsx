@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
-  LayoutDashboard, 
-  Mic2, 
-  Activity, 
-  Clapperboard, 
-  Settings, 
-  LogOut,
-  Sparkles 
+  LayoutDashboard, Mic2, Activity, Clapperboard, Settings, Sparkles, Zap 
 } from "lucide-react";
+import { UserButton, useUser } from "@clerk/nextjs";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { user } = useUser(); // 获取用户数据
+
+  // 从 Clerk 的 metadata 里读取积分，如果没有则默认显示 5
+  // 注意：publicMetadata 的更新可能有一点点延迟，这是正常的
+  const credits = (user?.publicMetadata?.credits as number) ?? 5;
 
   const menuItems = [
     { name: "工作台", href: "/", icon: <LayoutDashboard size={20} /> },
@@ -24,7 +24,6 @@ export default function Sidebar() {
 
   return (
     <div className="h-screen w-64 bg-slate-900 text-white flex flex-col fixed left-0 top-0 border-r border-slate-800 shadow-2xl z-50">
-      {/* Logo区 */}
       <div className="p-8 flex items-center gap-3">
         <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-900/50">
           <Sparkles size={24} className="text-white" />
@@ -35,7 +34,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* 菜单区 */}
       <nav className="flex-1 px-4 py-4 space-y-2">
         {menuItems.map((item) => {
           const isActive = pathname === item.href;
@@ -59,17 +57,36 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* 底部区 */}
+      {/* ✨ 新增：积分展示区 */}
+      <div className="px-4 mb-4">
+        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs text-slate-400 font-medium">剩余算力点数</span>
+            <Zap size={14} className="text-yellow-400 fill-yellow-400" />
+          </div>
+          <div className="flex items-end gap-1">
+            <span className="text-2xl font-bold text-white">{credits}</span>
+            <span className="text-xs text-slate-500 mb-1">/ 5</span>
+          </div>
+          <div className="w-full bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div 
+              className="bg-gradient-to-r from-yellow-400 to-orange-500 h-full rounded-full transition-all duration-500"
+              style={{ width: `${(credits / 5) * 100}%` }}
+            ></div>
+          </div>
+        </div>
+      </div>
+
       <div className="p-4 border-t border-slate-800">
-        <button className="flex items-center gap-3 px-4 py-3 w-full text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all">
-          <Settings size={20} />
-          <span>系统设置</span>
-        </button>
-        <div className="mt-4 flex items-center gap-3 px-4 py-2">
-          <div className="w-8 h-8 rounded-full bg-slate-700 border border-slate-600"></div>
-          <div className="text-xs">
-            <p className="text-white font-medium">管理员</p>
-            <p className="text-slate-500">Pro 版会员</p>
+        <div className="flex items-center gap-3 px-4 py-2 bg-slate-800/50 rounded-xl border border-slate-700/50">
+          <UserButton showName={false} />
+          <div className="text-xs overflow-hidden">
+            <p className="text-white font-medium truncate w-24">
+              {user?.fullName || "用户"}
+            </p>
+            <p className="text-slate-500 truncate w-24">
+              {user?.primaryEmailAddress?.emailAddress}
+            </p>
           </div>
         </div>
       </div>

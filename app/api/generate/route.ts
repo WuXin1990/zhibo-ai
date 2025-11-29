@@ -1,13 +1,39 @@
 import { NextResponse } from "next/server";
+import { checkAndDeductCredits } from "@/lib/credits";
+
+// 强制动态模式，确保能读取用户信息
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    // 1. 先扣费
+    const creditCheck = await checkAndDeductCredits();
+    
+    if (!creditCheck.success) {
+      return NextResponse.json({ 
+        error: "CREDIT_ZERO", 
+        message: "积分不足，请充值" 
+      }, { status: 403 });
+    }
+
+    // 2. 获取前端数据
     const { refText, productInfo, style } = await req.json();
 
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: "服务器没读到 Key" }, { status: 500 });
+      return NextResponse.json({ error: "服务器没读到 DeepSeek Key" }, { status: 500 });
     }
+
+    // ==========================================
+    // 核心修复：找回“蟹脚肉”教科书模板
+    // ==========================================
+    const loopTemplate = `
+【教科书级-循环话术参考（蟹脚肉）】：
+老客户知道我规矩的啊，我们开播都一般都会给大家做福利的啊，那么今天的开播福利呢，我做的是比较大的...（中间省略大量铺垫）...
+新号开播我给大家准备了这个海捕大蟹蟹脚肉啊...（价值塑造）...
+线下买的话呢，是大几十米一盒...今天不要大几十米，直接把福利一步到位炸到底...（价格锚点）...
+大家听清楚啊，我新号开播啊...（回到开头循环）
+`;
 
     let finalPrompt = "";
     
@@ -15,54 +41,32 @@ export async function POST(req: Request) {
       // 针对 10 分钟长循环的超级 Prompt
       finalPrompt = `
         # Role
-        你是一位顶级带货主播，正在进行一场【10分钟单品循环讲解】的直播。
-        你的风格是：极度亢奋、逻辑缜密、擅长“废话文学”（大量互动、重复强调、拉扯），能把一个卖点讲得跌宕起伏。
+        你是一位顶级带货主播，擅长“憋单+循环洗脑”。你的语速极快，情绪极度亢奋，擅长用“废话文学”拉时长。
         
         # Task
-        请根据【我方产品信息】，撰写一篇 **至少 2500 字** 的超长直播脚本。
-        **必须能够支撑主播连续讲解 10 分钟！**
+        请参考【蟹脚肉模板】的节奏和逻辑，结合【我方产品信息】，撰写一篇 **至少 2000 字** 的超长直播脚本。
         
-        # Structure (必须严格按照以下5个阶段撰写，每个阶段至少500字)
-        
-        **第一阶段：极速留人与铺垫 (0-2分钟)**
-        - 核心目标：留住刚划进来的新人。
-        - 话术要点：不要马上报价格！反复强调“今天新号开播”、“老板不在”、“破价福利”。
-        - 动作：疯狂互动，让大家飘“新字”，飘“想要”。
-        - *（请在此阶段大量使用：老粉都知道、新来的别走、给我一分钟、有没有新粉...）*
+        # 核心逻辑骨架 (必须严格遵守，每个环节都要拉长讲)：
+        1. **开场极速留人**：反复强调“新号开播”、“老板不在”、“破价福利”。（参考模板：老客户知道规矩...）
+        2. **痛点与价值**：疯狂踩低竞品（贵、差），捧高自己（源头、正品）。
+        3. **互动拉扯**：不要直接报价！要互动！“想要的扣1”、“给力不给力”。
+        4. **价格锚点**：先报高价（线下卖多少），再炸福利价（今天只要...）。
+        5. **逼单成交**：限时限量，倒数上架，引导关注。
+        6. **无限循环**：结尾的话术必须能自然衔接回开头，形成死循环。
 
-        **第二阶段：信任建立与痛点挖掘 (2-4分钟)**
-        - 核心目标：解释为什么今天便宜（如：源头工厂、为了冲销量）。
-        - 话术要点：痛斥市场乱象（别人卖得贵、品质差），对比我们的优势（源头、正品、专利）。
-        - *（请在此阶段详细描述产品细节，越细越好，比如材质、口感、工艺...）*
+        # 负面约束
+        1. **禁止生硬替换**：如果产品是“手机”，不要说“剥壳”、“海捕”。要换成“原装”、“未拆封”。
+        2. **禁止简短**：必须啰嗦！必须重复！把一句话拆成三句说。
 
-        **第三阶段：价值塑造与感官刺激 (4-7分钟)**
-        - 核心目标：让用户觉得这东西太好了。
-        - 话术要点：构建使用场景（拿回家给孩子吃、送礼有面子）。
-        - *（请在此阶段使用大量感叹句：哇、绝绝子、太香了、隔壁小孩都馋哭了...）*
-
-        **第四阶段：价格锚点与逼单 (7-9分钟)**
-        - 核心目标：抛出价格，制造疯抢感。
-        - 话术要点：先报高价（线下卖多少、某猫卖多少），再报今天福利价。
-        - 动作：引导关注、亮灯牌、倒数上架、只有50单。
-        - *（请在此阶段反复强调：一分钱不赚、亏本冲粉、去比价、手慢拍断大腿...）*
-
-        **第五阶段：循环衔接 (9-10分钟)**
-        - 核心目标：无缝回到开头。
-        - 话术要点：假装又进来了新的一波人，“哎，刚进来的宝宝...”，自然过渡回第一阶段的话术。
-
-        # Negative Constraints
-        1. **严禁简短**：绝对不能写几句就完了，必须扩写！必须啰嗦！
-        2. **禁止书面语**：要把“我们使用了AAA材质”改成“大家看我手里这个！这可是实打实的AAA啊！你们去外面打着灯笼都找不到！”
-        3. **动态适应**：如果产品是【${productInfo}】，请自动联想相关的痛点和卖点，不要生搬硬套“海鲜/剥壳”。
-
-        # Input Data
-        【我方产品信息】：${productInfo}
+        # 输入数据
+        【教科书模板】：${loopTemplate}
+        【我方产品】：${productInfo}
         
         # Output
-        直接输出脚本，不需要任何解释，字数要多！要长！
+        直接输出脚本内容，不要任何前缀和总结。
       `;
     } else {
-      // 其他短风格保持不变（略微优化了指令）
+      // 其他风格
       let stylePrompt = "";
       switch (style) {
         case "激昂喊麦": stylePrompt = "语气极度亢奋，语速快，像电视购物，情绪饱满！"; break;
@@ -86,6 +90,7 @@ export async function POST(req: Request) {
       `;
     }
 
+    // 3. 调用 AI
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: {
@@ -95,9 +100,8 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         model: "deepseek-chat",
         messages: [{ role: "user", content: finalPrompt }],
-        temperature: 1.3,
-        // 【关键修改】把最大Token数调高，允许 AI 写长文
-        max_tokens: 4000, 
+        temperature: 1.3, // 高创造性
+        max_tokens: 4000, // 允许长文
       }),
     });
 
@@ -107,9 +111,18 @@ export async function POST(req: Request) {
     }
 
     const aiText = data.choices[0].message.content;
-    return NextResponse.json({ result: aiText });
+    
+    // 4. 返回结果 + 剩余积分
+    return NextResponse.json({ 
+      result: aiText,
+      remainingCredits: creditCheck.credits 
+    });
 
-  } catch (error) {
-    return NextResponse.json({ error: "服务器代码崩了" }, { status: 500 });
+  } catch (error: any) {
+    console.error("生成出错:", error);
+    if (error.message === "请先登录") {
+        return NextResponse.json({ error: "请先登录" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });
   }
 }

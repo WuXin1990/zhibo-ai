@@ -5,6 +5,7 @@ import { Clapperboard, Loader2, ArrowLeft, Copy, Video, Clock } from "lucide-rea
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useUser } from "@clerk/nextjs"; // 1. 引入
 
 export default function VideoPage() {
   const [loading, setLoading] = useState(false);
@@ -12,7 +13,9 @@ export default function VideoPage() {
   
   const [productInfo, setProductInfo] = useState("");
   const [refText, setRefText] = useState("");
-  const [duration, setDuration] = useState("30"); // 视频时长
+  const [duration, setDuration] = useState("30"); 
+  
+  const { user } = useUser(); // 2. 获取用户
 
   const handleGenerate = async () => {
     if (!productInfo) {
@@ -32,10 +35,17 @@ export default function VideoPage() {
 
       const data = await response.json();
 
+      if (response.status === 403 && data.error.includes("积分不足")) {
+        alert("免费算力已耗尽，请去话术生成页充值。");
+        return;
+      }
+
       if (data.error) {
         setResult("出错了：" + data.error);
       } else {
         setResult(data.result);
+        // 3. 刷新积分
+        await user?.reload();
       }
     } catch (error) {
       setResult("网络请求失败。");
@@ -115,7 +125,7 @@ export default function VideoPage() {
                 <Loader2 className="animate-spin" /> 正在写剧本...
               </>
             ) : (
-              "🎬 生成分镜脚本"
+              "🎬 生成分镜脚本 (消耗1积分)"
             )}
           </button>
         </div>

@@ -1,19 +1,24 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Copy, Sparkles, Loader2, Mic, Heart, AlertTriangle, GraduationCap, Repeat, Upload, FileAudio } from "lucide-react";
+import { Copy, Sparkles, Loader2, Mic, Heart, AlertTriangle, GraduationCap, Repeat, FileAudio, X, UploadCloud } from "lucide-react";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs"; 
 
-export default function Home() {
+export default function ScriptPage() {
   const [loading, setLoading] = useState(false);
-  const [transcribing, setTranscribing] = useState(false); // 语音转文字的加载状态
+  const [transcribing, setTranscribing] = useState(false);
   const [result, setResult] = useState("");
   
   const [refText, setRefText] = useState("");
   const [productInfo, setProductInfo] = useState("");
   const [selectedStyle, setSelectedStyle] = useState("循环话术");
   
+  // 控制充值弹窗
+  const [showPayModal, setShowPayModal] = useState(false);
+  
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useUser(); // 获取用户信息，用于刷新积分
 
   const styles = [
     { name: "循环话术", icon: <Repeat size={18} />, color: "bg-green-100 text-green-600 border-green-200" },
@@ -23,18 +28,13 @@ export default function Home() {
     { name: "专业专家", icon: <GraduationCap size={18} />, color: "bg-blue-100 text-blue-600 border-blue-200" },
   ];
 
-  // ✨ 修复版：带文件大小检查的上传函数
+  // ✨ 找回：音频上传逻辑
   const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 🛑 核心修改：严格限制 10MB (阿里云同步接口的上限)
-    // 10MB = 10 * 1024 * 1024 字节
     if (file.size > 10 * 1024 * 1024) {
-      alert("⚠️ 文件太大了！(超过 10MB)\n\n阿里云极速接口限制 10MB 以内。\n\n💡 建议：\n1. 如果是视频，请提取音频(MP3)后再上传（MP3文件很小）。\n2. 或者只上传 1分钟以内的短视频片段测试。");
-      
-      // 清空选择，方便重新选
-      if (audioInputRef.current) audioInputRef.current.value = "";
+      alert("文件过大，请上传 10MB 以内的音频/视频文件。");
       return;
     }
 
@@ -53,10 +53,10 @@ export default function Home() {
       if (data.error) {
         alert("转写失败：" + data.error);
       } else {
-        setRefText(data.text);
+        setRefText(data.text); // 自动填入
       }
     } catch (error) {
-      alert("网络上传失败，请检查控制台日志");
+      alert("网络上传失败");
     } finally {
       setTranscribing(false);
       if (audioInputRef.current) audioInputRef.current.value = "";
@@ -81,10 +81,15 @@ export default function Home() {
 
       const data = await response.json();
 
-      if (data.error) {
+      // ✨ 检查是否欠费
+      if (data.error === "CREDIT_ZERO") {
+        setShowPayModal(true); // 弹出充值框
+      } else if (data.error) {
         setResult("出错了：" + data.error);
       } else {
         setResult(data.result);
+        // ✨ 成功扣费后，刷新前端显示的积分
+        await user?.reload();
       }
     } catch (error) {
       setResult("网络请求失败。");
@@ -94,14 +99,55 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-10">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-10 relative">
+      
+      {/* 💰 充值弹窗 */}
+      {showPayModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative animate-in fade-in zoom-in duration-300">
+            <button 
+              onClick={() => setShowPayModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X size={24} />
+            </button>
+            
+            <div className="text-center">
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4 text-yellow-600">
+                <AlertTriangle size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">免费算力已用完</h3>
+              <p className="text-gray-500 mb-6 text-sm">
+                您的 5 次免费额度已耗尽。<br/>
+                如需继续使用，请联系客服充值。
+              </p>
+              
+              <div className="bg-gray-100 rounded-xl p-4 mb-6">
+                <div className="w-40 h-40 bg-white mx-auto rounded-lg flex items-center justify-center text-gray-300 mb-2 border border-gray-200">
+                  {/* 这里可以放你的收款码图片 */}
+                  <span className="text-xs">请放二维码图片</span>
+                </div>
+                <p className="text-xs text-gray-500">扫码备注【充值】</p>
+                <p className="text-xs text-purple-600 font-bold mt-1">9.9元 / 100次</p>
+              </div>
+
+              <button 
+                onClick={() => setShowPayModal(false)}
+                className="w-full bg-gray-900 text-white py-3 rounded-xl font-medium hover:bg-gray-800 transition-colors"
+              >
+                我知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 顶部导航 */}
       <div className="w-full max-w-6xl px-4 mb-8 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
           <Sparkles className="text-purple-600" />
           电商主播话术生成器
         </h1>
-        {/* 跳转到诊断页面的入口 */}
         <Link 
           href="/diagnosis" 
           className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-200 transition-all font-medium shadow-sm"
@@ -139,7 +185,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* 对标文案输入区 (带上传功能) */}
+          {/* ✨ 找回：对标文案输入区 (带上传功能) */}
           <div className="relative group">
             <div className="flex justify-between items-center mb-2">
               <label className="block text-sm font-medium text-gray-700">
@@ -161,7 +207,7 @@ export default function Home() {
                 type="file" 
                 ref={audioInputRef} 
                 className="hidden" 
-                accept="audio/*,video/*" // 支持音频和视频
+                accept="audio/*,video/*"
                 onChange={handleAudioUpload}
               />
             </div>
