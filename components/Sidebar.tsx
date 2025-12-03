@@ -29,7 +29,7 @@ export default function Sidebar() {
   const menuItems = [
     // 在 menuItems 数组里添加：
     { name: "历史记录", href: "/history", icon: <Clock size={20} /> },
-    { name: "工作台", href: "/", icon: <LayoutDashboard size={20} /> },
+    { name: "工作台", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
     { name: "话术生成器", href: "/script", icon: <Mic2 size={20} /> },
     { name: "流量诊断室", href: "/diagnosis", icon: <Activity size={20} /> },
     { name: "分镜大导演", href: "/video", icon: <Clapperboard size={20} /> },
