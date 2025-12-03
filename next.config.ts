@@ -1,15 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 1. 忽略 TypeScript 错误 (关键)
+  // 1. TypeScript 检查通常还可以保留（如果这里也报错，就把这块也删了）
   typescript: {
     ignoreBuildErrors: true,
   },
-  // 2. 忽略 ESLint 错误 (关键)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  // 3. 允许跨域图片 (防止头像或截图显示不出来)
+  
+  // 2. 图片跨域配置 (保留)
   images: {
     remotePatterns: [
       {
