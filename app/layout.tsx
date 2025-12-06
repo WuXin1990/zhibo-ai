@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ClerkProvider } from '@clerk/nextjs';
-import { zhCN } from "@clerk/localizations";
+import Sidebar from "@/components/Sidebar"; // 1. 引入组件
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,13 +16,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider localization={zhCN}>
-      <html lang="zh">
-        <body className={inter.className}>
-          {/* 这里没有任何 Sidebar，只有纯净的内容 */}
-          {children}
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="zh">
+      <body className={inter.className}>
+        <div className="flex min-h-screen bg-slate-50">
+          {/* 2. 把侧边栏放回来 */}
+          <Sidebar />
+          
+          {/* 3. 右侧内容区 (ml-64 是为了给侧边栏留位置) */}
+          <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen">
+            <div className="max-w-7xl mx-auto">
+              {children}
+            </div>
+          </main>
+        </div>
+      </body>
+    </html>
   );
 }
